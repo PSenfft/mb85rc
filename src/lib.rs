@@ -1,7 +1,7 @@
 #![no_std]
 
+use core::{error::Error, result::Result};
 use embedded_hal::i2c::{I2c, SevenBitAddress};
-use core::result::Result;
 
 const DEVICE_ADDRESS: u8 = 0b10100000;
 const DEVICE_ADDRESS_CODE: u8 = 0b00000000;
@@ -24,8 +24,14 @@ impl<T: I2c> MB85RC<T> {
     /// * `self` - A mutable reference to the MB85RC instance.
     /// # Returns
     /// * `Result<[u8; 3], Infallible>` -
-    pub fn get_device_id(&mut self) -> [u8; 3] {
-        todo!()
+    pub fn get_device_id(&mut self) -> Result<[u8; 3], T::Error> {
+        let mut buffer: [u8; 3] = [0, 0, 0];
+        let reserved_slave_address = 0x7C; // Reserved Slave ID F9H without last bit, because wrte address adds this bit 
+        let payload = [0xA0]; // Device Address + read bit (write bit works also, because R/W code are “Don't care” value)
+        self.i2c
+            .write_read(reserved_slave_address, &payload, &mut buffer)?;
+
+        Ok(buffer)
     }
 
     /// Write bit on the specified memory address

@@ -1,16 +1,16 @@
 #![no_std]
 #![no_main]
 
-use embedded_hal_bus::i2c::RefCellDevice;
-use esp_hal::main;
-use esp_println::dbg;
-use esp_println::logger::init_logger;
 use core::cell::RefCell;
 use core::default::Default;
+use embedded_hal_bus::i2c::RefCellDevice;
 use esp_hal::clock::CpuClock;
+use esp_hal::main;
 use esp_hal::peripherals::Peripherals;
 use esp_hal::{delay::Delay, time::Duration};
-use log::{debug, info, error};
+use esp_println::dbg;
+use esp_println::logger::init_logger;
+use log::{debug, error, info};
 use mb85rc::{self, MB85RC};
 
 #[panic_handler]
@@ -29,10 +29,11 @@ fn main() -> ! {
     init_logger(log::LevelFilter::Debug);
 
     let peripherals = unsafe { Peripherals::steal() };
-    let i2c = esp_hal::i2c::master::I2c::new(peripherals.I2C0, esp_hal::i2c::master::Config::default())
-        .unwrap()
-        .with_sda(peripherals.GPIO22)
-        .with_scl(peripherals.GPIO23);
+    let i2c =
+        esp_hal::i2c::master::I2c::new(peripherals.I2C0, esp_hal::i2c::master::Config::default())
+            .unwrap()
+            .with_sda(peripherals.GPIO22)
+            .with_scl(peripherals.GPIO23);
 
     let delay = Delay::new();
     delay.delay(Duration::from_millis(500));
@@ -46,6 +47,10 @@ fn main() -> ! {
     delay.delay(Duration::from_millis(1000));
 
     let mut mb85rc = MB85RC::new(display_refcell_device, 0x50);
+
+    debug!("read device id");
+    let device_id = mb85rc.get_device_id();
+    dbg!(device_id);
 
     let memory_address = [0x00, 0x00];
     let data = 0xFF;
