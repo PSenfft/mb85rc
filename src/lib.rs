@@ -1,28 +1,13 @@
-use std::convert::Infallible;
-
 use embedded_hal::i2c::{I2c, SevenBitAddress};
-use embedded_io::{ErrorType, Read};
 
 const DEVICE_ADDRESS: u8 = 0b10100000;
 const DEVICE_ADDRESS_CODE: u8 = 0b00000000;
 const DEVICE_W: u8 = 0b00000000;
 const DEVICE_R: u8 = 0b00000001;
 
-struct MB85RC<T: I2c<SevenBitAddress>> {
+pub struct MB85RC<T: I2c<SevenBitAddress>> {
     i2c: T,
     address: SevenBitAddress,
-}
-
-#[derive(Debug)]
-pub enum MyI2cError<> {
-    DeviceNotFound,
-    InvalidData,
-}
-
-enum I2CFrequency {
-    StandardMode = 100_000,
-    FastMode = 400_000,
-    FastModePlus = 1_000_000,
 }
 
 impl<T: I2c> MB85RC<T> {
@@ -36,10 +21,8 @@ impl<T: I2c> MB85RC<T> {
     /// * `self` - A mutable reference to the MB85RC instance.
     /// # Returns
     /// * `Result<[u8; 3], Infallible>` -
-    fn get_device_id(&mut self) -> Result<[u8; 3], Infallible> {
-        let id: [u8; 3] = [1, 2, 3];
-
-        Ok(id)
+    pub fn get_device_id(&mut self) -> [u8; 3] {
+        todo!()
     }
 
     /// Write bit on the specified memory address
@@ -47,7 +30,7 @@ impl<T: I2c> MB85RC<T> {
     /// * `self` - A mutable reference to the MB85RC instance.
     /// * `memory_address` - The memory address to write to.
     /// * `data` - The data byte to write.
-    fn byte_write(&mut self, memory_address: [u8; 2], data: u8) -> Result<u8, T::Error> {
+    pub fn byte_write(&mut self, memory_address: [u8; 2], data: u8) -> Result<u8, T::Error> {
         let payload = [memory_address[0], memory_address[1], data];
         self.i2c.write(self.address, &payload)?;
         Ok(data)
@@ -59,9 +42,8 @@ impl<T: I2c> MB85RC<T> {
     /// of the memory address that was written first. Because FRAM performs the high-speed write operations, the
     /// data will be written to FRAM right after the ACK response finished.
     /// array 32KB
-    fn write_page(memory_address: [u8; 2], buf: &mut [u8]) -> Result<(), Infallible> {
-        // Implement the logic to write a page of data
-        Ok(())
+    pub fn write_page(memory_address: [u8; 2], buf: &mut [u8]) -> Result<(), T::Error> {
+        todo!()
     }
 
     /// The one byte of data from the memory address saved in the memory address buffer can be read out
@@ -70,30 +52,21 @@ impl<T: I2c> MB85RC<T> {
     /// * `memory_address` - The memory address to read from.
     /// # Returns
     /// * `Result<u8, Infallible>` - The byte read from the specified
-    fn random_read(&mut self, memory_address: &mut [u8; 2]) -> Result<u8, MyI2cError> {
+    pub fn random_read(&mut self, memory_address: &mut [u8; 2]) -> Result<u8, T::Error> {
         let mut buffer: [u8; 1] = [0];
-        self.i2c.write_read(self.address, memory_address, &mut buffer).map_err(|_| MyI2cError::InvalidData)?;
+        self.i2c
+            .write_read(self.address, memory_address, &mut buffer)?;
+
         Ok(buffer[0])
     }
+
     /// Performs a sequential read operation starting from the specified memory address,
     /// reading data continuously into the provided buffer. After specifying the address,
     /// data can be received continuously following the device address word with a read
     /// command. If the end of the memory address space is reached, the internal read
     /// address automatically rolls over to the first memory address (0x0000) and continues
     /// reading.
-    fn sequential_read(memory_address: [u8; 2], buf: &mut [u8]) -> Result<usize, Infallible> {
-        let read_bytes: usize = 0;
-
-        Ok(read_bytes)
-    }
-}
-
-impl<T: I2c> ErrorType for MB85RC<T> {
-    type Error = Infallible;
-}
-
-impl<T: I2c> Read for MB85RC<T> {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+    pub fn sequential_read(memory_address: [u8; 2], buf: &mut [u8]) -> Result<usize, T::Error> {
         todo!()
     }
 }
