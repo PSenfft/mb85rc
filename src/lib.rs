@@ -1,4 +1,7 @@
+#![no_std]
+
 use embedded_hal::i2c::{I2c, SevenBitAddress};
+use core::result::Result;
 
 const DEVICE_ADDRESS: u8 = 0b10100000;
 const DEVICE_ADDRESS_CODE: u8 = 0b00000000;
@@ -52,7 +55,7 @@ impl<T: I2c> MB85RC<T> {
     /// * `memory_address` - The memory address to read from.
     /// # Returns
     /// * `Result<u8, Infallible>` - The byte read from the specified
-    pub fn random_read(&mut self, memory_address: &mut [u8; 2]) -> Result<u8, T::Error> {
+    pub fn random_read(&mut self, memory_address: &[u8; 2]) -> Result<u8, T::Error> {
         let mut buffer: [u8; 1] = [0];
         self.i2c
             .write_read(self.address, memory_address, &mut buffer)?;
