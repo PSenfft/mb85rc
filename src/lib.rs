@@ -1,6 +1,6 @@
 #![no_std]
 
-use core::{error::Error, result::Result};
+use core::result::Result;
 use embedded_hal::i2c::{I2c, SevenBitAddress};
 
 const DEVICE_ADDRESS: u8 = 0b10100000;
@@ -75,7 +75,11 @@ impl<T: I2c> MB85RC<T> {
     /// command. If the end of the memory address space is reached, the internal read
     /// address automatically rolls over to the first memory address (0x0000) and continues
     /// reading.
-    pub fn sequential_read(memory_address: [u8; 2], buf: &mut [u8]) -> Result<usize, T::Error> {
+    pub fn sequential_read(
+        &mut self,
+        memory_address: [u8; 2],
+        buf: &mut [u8],
+    ) -> Result<usize, T::Error> {
         todo!()
     }
 }
