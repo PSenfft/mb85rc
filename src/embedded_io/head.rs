@@ -1,28 +1,34 @@
 use embedded_io::SeekFrom;
 
 /// moveable Read/Write head
+/// Capped at `N`
+/// Does not allow overflow
 #[derive(Clone, Copy, Default)]
-pub struct Head(u64);
+pub struct Head<const N: u64>(u64);
 
-impl Head {
+impl<const N: u64> Head<N> {
     pub fn new() -> Self {
         Self(0)
     }
 
-    pub fn seek(&mut self, pos: SeekFrom) -> Result<u64, ()> {
+    pub fn seek(&mut self, pos: SeekFrom) -> Option<u64> {
         match pos {
-            SeekFrom::Start(offset) => {
-                self.0 = offset;
-                Ok(self.0)
-            }
+            SeekFrom::Start(offset) => match self.0.checked_add(offset).filter(|&sum| sum <= N) {
+                Some(new_pos) => {
+                    self.0 = new_pos;
+                    Some(new_pos)
+                }
+                None => None,
+            },
             SeekFrom::End(offset) => {
+                // Do not allow seek over the end
                 if offset > 0 {
-                    return Err(());
+                    return None;
                 }
 
-                self.0 = u64::MAX - offset.unsigned_abs();
+                self.0 = N - offset.unsigned_abs();
 
-                Ok(self.0)
+                Some(self.0)
             }
             SeekFrom::Current(offset) => {
                 let new_pos = if offset > 0 {
@@ -33,21 +39,31 @@ impl Head {
 
                 match new_pos {
                     Some(pos) => {
-                        self.0 = pos;
-                        Ok(self.0)
+                        if pos > N {
+                            None
+                        } else {
+                            self.0 = pos;
+                            Some(self.0)
+                        }
                     }
-                    None => Err(()),
+                    None => None,
                 }
             }
         }
     }
 
     /// Move the head forward when reading files.
-    /// Expected to not overflow. If it does it is capped at `u64::MAX`.
+    /// Expected to not overflow. If it does it is capped at `N`.
     pub fn advance(&mut self, bytes: usize) {
-        match u64::try_from(bytes) {
-            Ok(offset) => self.0 += offset,
-            Err(_) => self.0 = u64::MAX,
+        match self.0.checked_add(bytes as u64) {
+            Some(sum) => {
+                if sum > N {
+                    self.0 = N
+                } else {
+                    self.0 = sum;
+                }
+            }
+            None => self.0 = N,
         }
     }
 
@@ -65,8 +81,8 @@ impl Head {
     }
 }
 
-impl From<Head> for u64 {
-    fn from(head: Head) -> Self {
+impl<const N: u64> From<Head<N>> for u64 {
+    fn from(head: Head<N>) -> Self {
         head.0
     }
 }
@@ -77,87 +93,94 @@ mod tests {
 
     #[test]
     fn create() {
-        let head = Head::new();
+        let head: Head<65_535> = Head::new();
         let inner: u64 = head.into();
         assert_eq!(inner, 0u64);
     }
 
     #[test]
     fn seek_start() {
-        let mut head = Head::new();
+        let mut head: Head<65_535> = Head::new();
         let res = head.seek(SeekFrom::Start(1337));
 
         let inner: u64 = head.into();
         assert_eq!(inner, 1337u64);
-        assert_eq!(res, Ok(inner));
+        assert_eq!(res, Some(inner));
     }
 
     #[test]
     fn seek_current_forward() {
-        let mut head = Head::new();
+        let mut head: Head<65_535> = Head::new();
         let _ = head.seek(SeekFrom::Start(1337));
 
         let res = head.seek(SeekFrom::Current(3));
 
         let inner: u64 = head.into();
         assert_eq!(inner, 1340u64);
-        assert_eq!(res, Ok(inner));
+        assert_eq!(res, Some(inner));
     }
 
     #[test]
     fn seek_current_back() {
-        let mut head = Head::new();
+        let mut head: Head<65_535> = Head::new();
         let _ = head.seek(SeekFrom::Start(1337));
 
         let res = head.seek(SeekFrom::Current(-337));
 
         let inner: u64 = head.into();
         assert_eq!(inner, 1000u64);
-        assert_eq!(res, Ok(inner));
+        assert_eq!(res, Some(inner));
     }
 
     #[test]
     fn seek_current_zero() {
-        let mut head = Head::new();
+        let mut head: Head<65_535> = Head::new();
         let _ = head.seek(SeekFrom::Start(1337));
 
         let res = head.seek(SeekFrom::Current(0));
 
         let inner: u64 = head.into();
         assert_eq!(inner, 1337u64);
-        assert_eq!(res, Ok(inner));
+        assert_eq!(res, Some(inner));
     }
 
     #[test]
     fn seek_end() {
-        let mut head = Head::new();
+        let mut head: Head<65_535> = Head::new();
         let res = head.seek(SeekFrom::End(-10));
 
         let inner: u64 = head.into();
-        assert_eq!(inner, u64::MAX - 10);
-        assert_eq!(res, Ok(inner));
+        assert_eq!(inner, 65_535 - 10);
+        assert_eq!(res, Some(inner));
+    }
+
+    #[test]
+    fn seek_end_overflow() {
+        let mut head: Head<65_535> = Head::new();
+        let res = head.seek(SeekFrom::End(10));
+        assert!(res.is_none());
     }
 
     #[test]
     fn seek_invalid_overflow() {
-        let mut head = Head::new();
-        let _ = head.seek(SeekFrom::Start(u64::MAX - 5));
+        let mut head: Head<65_535> = Head::new();
+        let _ = head.seek(SeekFrom::Start(65_535 - 5));
 
         let res = head.seek(SeekFrom::Current(10));
-        assert!(res.is_err());
+        assert!(res.is_none());
     }
 
     #[test]
     fn seek_invalid_underflow() {
-        let mut head = Head::new();
+        let mut head: Head<65_535> = Head::new();
 
         let res = head.seek(SeekFrom::Current(-1));
-        assert!(res.is_err());
+        assert!(res.is_none());
     }
 
     #[test]
     fn convert_zero() {
-        let head = Head::new();
+        let head: Head<65_535> = Head::new();
         let addr = head.memory_address();
 
         assert_eq!(addr, Some([0, 0]));
@@ -165,7 +188,7 @@ mod tests {
 
     #[test]
     fn convert_1_byte() {
-        let mut head = Head::new();
+        let mut head: Head<65_535> = Head::new();
         let _ = head.seek(SeekFrom::Start(50));
 
         let addr = head.memory_address();
@@ -175,7 +198,7 @@ mod tests {
 
     #[test]
     fn convert_2_bytes() {
-        let mut head = Head::new();
+        let mut head: Head<65_535> = Head::new();
         let _ = head.seek(SeekFrom::Start(260));
 
         let addr = head.memory_address();
@@ -185,8 +208,8 @@ mod tests {
 
     #[test]
     fn convert_invalid() {
-        let mut head = Head::new();
-        let _ = head.seek(SeekFrom::Start(u16::MAX as u64 + 1));
+        let mut head: Head<4_294_967_295> = Head::new(); // Needs to be more then u16::MAX 
+        let _ = head.seek(SeekFrom::Start(65_536)); // One more then u16::MAX
 
         let addr = head.memory_address();
         assert!(addr.is_none());
