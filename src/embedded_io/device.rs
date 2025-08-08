@@ -27,17 +27,18 @@ impl<T: I2c> ErrorType for EmbedIODev<T> {
 impl<T: I2c> Read for EmbedIODev<T> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
         self.dev
-            .sequential_read(self.head.memory_address().unwrap(), buf)
+            .sequential_read(&self.head.memory_address().unwrap(), buf)
             .map_err(MB85RCErrorType::I2c)
-            .inspect(|read_bytes| {
-                self.head.advance(*read_bytes);
+            .map(|_| {
+                self.head.advance(buf.len());
+                buf.len()
             })
     }
 }
 
 impl<T: I2c> Write for EmbedIODev<T> {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-        // From trait doc: Implementations must not return Ok(0) unless buf is empty. 
+        // From trait doc: Implementations must not return Ok(0) unless buf is empty.
         if buf.is_empty() {
             return Ok(0);
         }
