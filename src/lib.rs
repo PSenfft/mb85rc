@@ -43,11 +43,9 @@ impl<T: I2c> MB85RC<T> {
     /// * `data` - The data byte to write.
     /// # Returns
     /// * `Result<u8, T::Error>`
-    pub fn byte_write(&mut self, memory_address: [u8; 2], data: u8) -> Result<u8, T::Error> {
+    pub fn byte_write(&mut self, memory_address: [u8; 2], data: u8) -> Result<(), T::Error> {
         let payload = [memory_address[0], memory_address[1], data];
-        self.i2c.write(self.address, &payload)?;
-
-        Ok(data)
+        self.i2c.write(self.address, &payload)
     }
 
     /// If additional 8 bits are continuously sent after the same command (except stop condition) as Byte Write, a
@@ -71,9 +69,7 @@ impl<T: I2c> MB85RC<T> {
         payload[0] = memory_address[0];
         payload[1] = memory_address[1];
         payload[2..].copy_from_slice(data);
-        self.i2c.write(self.address, &payload)?;
-
-        Ok(())
+        self.i2c.write(self.address, &payload)
     }
 
     /// The one byte of data from the memory address saved in the memory address buffer can be read out
@@ -107,9 +103,7 @@ impl<T: I2c> MB85RC<T> {
         &mut self,
         memory_address: &[u8; 2],
         buffer: &'a mut [u8],
-    ) -> Result<&'a mut [u8], T::Error> {
-        self.i2c.write_read(self.address, memory_address, buffer)?;
-
-        Ok(buffer)
+    ) -> Result<(), T::Error> {
+        self.i2c.write_read(self.address, memory_address, buffer)
     }
 }
